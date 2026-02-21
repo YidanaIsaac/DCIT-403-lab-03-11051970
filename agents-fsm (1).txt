@@ -1,0 +1,115 @@
+GridCoordinatorAgent FSM
+
+                +----------------+
+                |  MONITORING    |
+                | (waiting event)|
+                +----------------+
+                     |  demand: X
+                     v
+                +----------------+
+                |  EVALUATING    |
+                +----------------+
+                | imbalance <10  |----> MINOR_BALANCING ----+
+                | 10<=imb<20     |----> MODERATE_BALANCING --+--> MONITORING
+                | 20<=imb        |----> SEVERE_BALANCING ----+
+                     |
+                failure: detected
+                     v
+                +----------------+
+                |   EMERGENCY    |
+                +----------------+
+                     |
+                     v
+                +----------------+
+                |   RECOVERY     |
+                +----------------+
+                     |
+                     v
+                MONITORING
+
+Actions per balancing state:
+MINOR_BALANCING: send increase_generation_minor → PowerPlant
+MODERATE_BALANCING: send increase_generation_moderate → PowerPlant, discharge_moderate → Storage
+SEVERE_BALANCING: send activate_backup → PowerPlant, discharge_severe → Storage, load_shed → Consumer
+
+PowerPlantAgent FSM
+
+             +------------------+
+             |  IDLE             |
+             +------------------+
+                     |
+         receive command |
+      increase_generation_minor
+                     v
+             +------------------+
+             |  GENERATING       |
+             | slight increase   |
+             +------------------+
+                     |
+         receive command |
+     increase_generation_moderate
+                     v
+             +------------------+
+             | GENERATING HIGH   |
+             | significant gen   |
+             +------------------+
+                     |
+         receive command |
+           activate_backup
+                     v
+             +------------------+
+             | BACKUP ACTIVE     |
+             +------------------+
+                     |
+                     v
+             send ack to Coordinator
+                     |
+                     v
+                 IDLE
+
+StorageAgent FSM
+
+             +------------------+
+             | IDLE              |
+             +------------------+
+                     |
+          receive command  |
+    discharge_moderate    |
+                     v
+             +------------------+
+             | MODERATE_DISCHARGE|
+             | -20 units         |
+             +------------------+
+                     |
+          receive command  |
+      discharge_severe     |
+                     v
+             +------------------+
+             | SEVERE_DISCHARGE  |
+             | -40 units         |
+             +------------------+
+                     |
+             send ack to Coordinator
+                     |
+                     v
+                 IDLE
+
+ConsumerAgent FSM
+
+             +------------------+
+             | NORMAL_LOAD       |
+             | 100% consumption  |
+             +------------------+
+                     |
+          receive command  |
+            load_shed
+                     v
+             +------------------+
+             | LOAD_REDUCED      |
+             | 80% consumption   |
+             +------------------+
+                     |
+             send ack to Coordinator
+                     |
+                     v
+             NORMAL_LOAD
